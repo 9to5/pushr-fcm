@@ -26,8 +26,6 @@ module Pushr
           begin
             response = notification_request(data.to_message)
             handle_response(response, data, retry_count)
-          rescue FcmError => e
-            raise e
           rescue => e
             retry_count += 1
             if retry_count < 10
