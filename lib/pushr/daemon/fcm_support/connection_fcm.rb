@@ -5,7 +5,7 @@ module Pushr
 
       class ConnectionFcm
         attr_reader :response, :name, :configuration
-        PUSH_URL = 'https://fcm.googleapis.com/fcm//send'
+        PUSH_URL = 'https://fcm.googleapis.com/fcm/send'
         IDLE_PERIOD = 5 * 60
 
         def initialize(configuration, i)
