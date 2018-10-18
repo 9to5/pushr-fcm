@@ -2,7 +2,6 @@ require 'spec_helper'
 require 'pushr/configuration_fcm'
 
 describe Pushr::ConfigurationFcm do
-
   before(:each) do
     Pushr::Core.configure do |config|
       config.redis = ConnectionPool.new(size: 1, timeout: 1) { MockRedis.new }
@@ -23,7 +22,10 @@ describe Pushr::ConfigurationFcm do
   end
 
   describe 'save' do
-    let(:config) { Pushr::ConfigurationFcm.new(app: 'app_name', connections: 2, enabled: true, api: 'key') }
+    let(:config) {
+      Pushr::ConfigurationFcm.new(app: 'app_name', connections: 2, enabled: true, project_id: 'project_id',
+                                  service_account: '{}')
+    }
     it 'should save a configuration' do
       config.save
       expect(Pushr::Configuration.all.count).to eql(1)

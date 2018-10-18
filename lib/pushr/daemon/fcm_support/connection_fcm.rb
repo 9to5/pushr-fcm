@@ -4,28 +4,30 @@ module Pushr
       class ConnectionError < StandardError; end
 
       class ConnectionFcm
-        attr_reader :response, :name, :configuration
-        PUSH_URL = 'https://fcm.googleapis.com/fcm/send'
+        attr_reader :response, :name, :configuration, :authenticator, :url
         IDLE_PERIOD = 5 * 60
 
         def initialize(configuration, i)
           @configuration = configuration
           @name = "#{@configuration.app}: ConnectionFcm #{i}"
+          @authenticator = Pushr::Daemon::FcmSupport::Authenticator.new(configuration, i)
+          @url = "https://fcm.googleapis.com/v1/projects/#{configuration.project_id}/messages:send"
         end
 
         def connect
           @last_use = Time.now
-          uri = URI.parse(PUSH_URL)
+          uri = URI.parse(@url)
           @connection = open_http(uri.host, uri.port)
           @connection.start
-          Pushr::Daemon.logger.info("[#{@name}] Connected to #{PUSH_URL}")
+          Pushr::Daemon.logger.info("[#{@name}] Connected to #{@url}")
         end
 
         def write(data)
           retry_count = 0
           begin
             response = notification_request(data.to_message)
-            handle_response(response, data, retry_count)
+            handler = Pushr::Daemon::FcmSupport::ResponseHandler.new(response, data, retry_count)
+            handler.handle
           rescue => e
             retry_count += 1
             if retry_count < 10
@@ -38,47 +40,6 @@ module Pushr
 
         private
 
-        def handle_response(response, data, retry_count)
-          if response.code.eql? '200'
-            handler = Pushr::Daemon::FcmSupport::ResponseHandler.new(response, data)
-            handler.handle
-          else
-            handle_error_response(response, data, retry_count)
-          end
-        end
-
-        def handle_error_response(response, data, retry_count)
-          case response.code.to_i
-          when 400
-            # Pushr::Daemon.logger.error("[#{@name}] JSON formatting exception received.")
-            return Pushr::Daemon::DeliveryError.new(response.code, data, 'JSON formatting exception', 'FCM', false)
-          when 401
-            # Pushr::Daemon.logger.error("[#{@name}] Authentication exception received.")
-            return Pushr::Daemon::DeliveryError.new(response.code, data, 'Authentication exception', 'FCM', false)
-          when 500..599
-            # internal error FCM server || service unavailable: exponential back-off
-            handle_error_5xx_response(response, retry_count)
-          else
-            # Pushr::Daemon.logger.error("[#{@name}] Unknown error: #{response.code} #{response.message}")
-            return Pushr::Daemon::DeliveryError.new(response.code, data, "Unknown error: #{response.message}", 'FCM', false)
-          end
-        end
-
-        # sleep if there is a Retry-After header
-        def handle_error_5xx_response(response, retry_count)
-          if response.header['Retry-After']
-            value = response.header['Retry-After']
-
-            if value.to_i > 0 # Retry-After: 120
-              sleep value.to_i
-            elsif Date.rfc2822(value) # Retry-After: Fri, 31 Dec 1999 23:59:59 GMT
-              sleep Time.now.utc - Date.rfc2822(value).to_time.utc
-            end
-          else
-            sleep 2**retry_count
-          end
-        end
-
         def open_http(host, port)
           http = Net::HTTP.new(host, port)
           http.use_ssl = true
@@ -86,10 +47,9 @@ module Pushr
         end
 
         def notification_request(data)
-          headers = { 'Authorization' => "key=#{@configuration.api}",
-                      'Content-type' => 'application/json',
-                      'Content-length' => "#{data.length}" }
-          uri = URI.parse(PUSH_URL)
+          headers = { 'Authorization' => "Bearer #{@authenticator.fetch_access_token}",
+                      'Content-type' => 'application/json' }
+          uri = URI.parse(@url)
           post(uri, data, headers)
         end
 
@@ -104,7 +64,7 @@ module Pushr
           rescue EOFError, Errno::ECONNRESET, Timeout::Error => e
             retry_count += 1
 
-            Pushr::Daemon.logger.error("[#{@name}] Lost connection to #{PUSH_URL} (#{e.class.name}), reconnecting ##{retry_count}...")
+            Pushr::Daemon.logger.error("[#{@name}] Lost connection to #{@url} (#{e.class.name}), reconnecting ##{retry_count}...")
 
             if retry_count <= 3
               reconnect

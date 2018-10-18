@@ -6,77 +6,14 @@ require 'pushr/message_fcm'
 
 describe Pushr::Daemon::FcmSupport::ResponseHandler do
   it 'should handle no errors' do
-    json = '{"multicast_id":7726000338213371155,"success":1,"failure":0,"canonical_ids":0,' \
-           '"results":[{"message_id":"0:1397767098298993%00525e0300000078"}]}'
+    json = '{"name": "projects/project_id/messages/9216177826578065331"}'
     response = double('response')
     allow(response).to receive(:body).and_return(json)
+    allow(response).to receive(:code).and_return('200')
 
     message = double('message')
-    allow(message).to receive('registration_ids').and_return(['device_id'])
-    handler = Pushr::Daemon::FcmSupport::ResponseHandler.new(response, message)
+    handler = Pushr::Daemon::FcmSupport::ResponseHandler.new(response, message, 0)
     handler.handle
     # TODO: assert
-  end
-
-  it 'should handle Unavailable' do
-    json = '{"multicast_id":7726000338213371155,"success":0,"failure":1,"canonical_ids":0,' \
-           '"results":[{"error":"Unavailable"}]}'
-    response = double('response')
-    allow(response).to receive(:body).and_return(json)
-
-    message = double('message')
-    allow(message).to receive('registration_ids').and_return(['device_id'])
-    expect(message).to receive('registration_ids=').with(['device_id'])
-    allow(message).to receive('save')
-    handler = Pushr::Daemon::FcmSupport::ResponseHandler.new(response, message)
-    handler.handle
-    # TODO: assert
-  end
-  it 'should work' do
-    t = double('test')
-    allow(t).to receive(:foobar).and_return(1)
-    expect(t.clone.foobar).to eq(1)
-  end
-
-  it 'should handle InvalidRegistration' do
-    expect_any_instance_of(Pushr::FeedbackFcm).to receive(:save)
-    json = '{"multicast_id":7726000338213371155,"success":0,"failure":1,"canonical_ids":0,' \
-           '"results":[{"error":"InvalidRegistration"}]}'
-    response = double('response')
-    allow(response).to receive(:body).and_return(json)
-
-    message = double('message')
-    allow(message).to receive('registration_ids').and_return(['device_id'])
-    allow(message).to receive(:app).and_return('app_name')
-    handler = Pushr::Daemon::FcmSupport::ResponseHandler.new(response, message)
-    handler.handle
-  end
-
-  it 'should handle registration_id' do
-    expect_any_instance_of(Pushr::FeedbackFcm).to receive(:save)
-    json = '{"multicast_id":7726000338213371155,"success":1,"failure":0,"canonical_ids":1,' \
-           '"results":[{"message_id":"message_id","registration_id":"new_reg_id"}]}'
-    response = double('response')
-    allow(response).to receive(:body).and_return(json)
-
-    message = double('message')
-    allow(message).to receive('registration_ids').and_return(['device_id'])
-    allow(message).to receive(:app).and_return('app_name')
-    handler = Pushr::Daemon::FcmSupport::ResponseHandler.new(response, message)
-    handler.handle
-  end
-
-  it 'should handle NotRegistered' do
-    expect_any_instance_of(Pushr::FeedbackFcm).to receive(:save)
-    json = '{"multicast_id":7726000338213371155,"success":0,"failure":1,"canonical_ids":0,' \
-           '"results":[{"error":"NotRegistered"}]}'
-    response = double('response')
-    allow(response).to receive(:body).and_return(json)
-
-    message = double('message')
-    allow(message).to receive('registration_ids').and_return(['device_id'])
-    allow(message).to receive(:app).and_return('app_name')
-    handler = Pushr::Daemon::FcmSupport::ResponseHandler.new(response, message)
-    handler.handle
   end
 end

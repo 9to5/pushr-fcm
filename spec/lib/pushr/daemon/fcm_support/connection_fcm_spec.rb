@@ -7,11 +7,14 @@ require 'pushr/configuration_fcm'
 require 'pushr/daemon/delivery_error'
 
 describe Pushr::Daemon::FcmSupport::ConnectionFcm do
-
   before(:each) do
     Pushr::Core.configure do |config|
       config.redis = ConnectionPool.new(size: 1, timeout: 1) { MockRedis.new }
     end
+
+    class_double('Pushr::Daemon::FcmSupport::Authenticator',
+                 new: instance_double('Pushr::Daemon::FcmSupport::Authenticator',
+                                      fetch_access_token: 'mock_access_token')).as_stubbed_const
 
     logger = double('logger')
     allow(logger).to receive(:info)
@@ -20,16 +23,17 @@ describe Pushr::Daemon::FcmSupport::ConnectionFcm do
     Pushr::Daemon.logger = logger
   end
 
-  describe 'sends a message' do
-    let(:config) do
-      Pushr::ConfigurationFcm.new(app: 'app_name', connections: 2, enabled: true, api: 'apikey')
-    end
+  let(:config) do
+    Pushr::ConfigurationFcm.new(app: 'app_name', connections: 2, enabled: true, project_id: 'project_id',
+                                service_account: '{}')
+  end
+  let(:connection) { Pushr::Daemon::FcmSupport::ConnectionFcm.new(config, 1) }
+
+  describe 'sends a message to topic' do
     let(:message) do
-      hsh = { app: 'app_name', registration_ids: ['devicetoken'], collapse_key: 'x', delay_while_idle: false,
-              time_to_live: 24 * 60 * 60, data: { test: 'test' } }
+      hsh = { app: 'app_name', topic: 'test' }
       Pushr::MessageFcm.new(hsh)
     end
-    let(:connection) { Pushr::Daemon::FcmSupport::ConnectionFcm.new(config, 1) }
 
     it 'succesful', :vcr do
       connection.connect
@@ -37,34 +41,60 @@ describe Pushr::Daemon::FcmSupport::ConnectionFcm do
       # TODO: expect(connection.write(message).code).to eql '200'
     end
 
-    it 'fails and should Retry-After', :vcr do
-      expect_any_instance_of(Pushr::Daemon::FcmSupport::ConnectionFcm).to receive(:sleep)
-      connection.connect
-      connection.write(message)
+    # it 'fails and should Retry-After', :vcr do
+    #   expect_any_instance_of(Pushr::Daemon::FcmSupport::ConnectionFcm).to receive(:sleep)
+    #   connection.connect
+    #   connection.write(message)
+    # end
+    #
+    # it 'fails and should Retry-After with date', :vcr do
+    #   expect_any_instance_of(Pushr::Daemon::FcmSupport::ConnectionFcm).to receive(:sleep)
+    #   connection.connect
+    #   connection.write(message)
+    # end
+    #
+    # it 'fails and should sleep after fail', :vcr do
+    #   expect_any_instance_of(Pushr::Daemon::FcmSupport::ConnectionFcm).to receive(:sleep)
+    #   connection.connect
+    #   connection.write(message)
+    # end
+    #
+    # it 'fails of a json formatting execption', :vcr do
+    #   connection.connect
+    #   connection.write(message)
+    #   # TODO: assert
+    # end
+    #
+    # it 'fails of a not authenticated execption', :vcr do
+    #   connection.connect
+    #   connection.write(message)
+    #   # TODO: assert
+    # end
+  end
+
+  describe 'sends a message to token' do
+    let(:message) do
+      hsh = { app: 'app_name', token: 'token', notification: { title: 'test', body: 'message' } }
+      Pushr::MessageFcm.new(hsh)
     end
 
-    it 'fails and should Retry-After with date', :vcr do
-      expect_any_instance_of(Pushr::Daemon::FcmSupport::ConnectionFcm).to receive(:sleep)
+    it 'succesful', :vcr do
       connection.connect
       connection.write(message)
+      # TODO: expect(connection.write(message).code).to eql '200'
+    end
+  end
+
+  describe 'sends a message to condition' do
+    let(:message) do
+      hsh = { app: 'app_name', condition: "'foo' in topics && 'bar' in topics'" }
+      Pushr::MessageFcm.new(hsh)
     end
 
-    it 'fails and should sleep after fail', :vcr do
-      expect_any_instance_of(Pushr::Daemon::FcmSupport::ConnectionFcm).to receive(:sleep)
+    it 'succesful', :vcr do
       connection.connect
       connection.write(message)
-    end
-
-    it 'fails of a json formatting execption', :vcr do
-      connection.connect
-      connection.write(message)
-      # TODO: assert
-    end
-
-    it 'fails of a not authenticated execption', :vcr do
-      connection.connect
-      connection.write(message)
-      # TODO: assert
+      # TODO: expect(connection.write(message).code).to eql '200'
     end
   end
 end

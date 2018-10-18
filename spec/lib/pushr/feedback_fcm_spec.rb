@@ -2,7 +2,6 @@ require 'spec_helper'
 require 'pushr/feedback_fcm'
 
 describe Pushr::FeedbackFcm do
-
   before(:each) do
     Pushr::Core.configure do |config|
       config.redis = ConnectionPool.new(size: 1, timeout: 1) { MockRedis.new }
