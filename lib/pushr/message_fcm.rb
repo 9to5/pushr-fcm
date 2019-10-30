@@ -7,7 +7,7 @@ module Pushr
 
     def to_message
       hsh = {}
-      %w[name data notification android webpush apns token topic condition].each do |variable|
+      %w[name data notification android webpush apns fcm_options token topic condition].each do |variable|
         hsh[variable] = send(variable) if send(variable)
       end
       MultiJson.dump(message: hsh)
