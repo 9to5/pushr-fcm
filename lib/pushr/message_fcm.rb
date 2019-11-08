@@ -4,6 +4,34 @@ module Pushr
 
     attr_accessor :name, :data, :notification, :android, :webpush, :apns, :fcm_options, :token, :topic, :condition
 
+    # {
+    #   "name": string,
+    #   "data": {
+    #     string: string,
+    #     ...
+    #   },
+    #   "notification": {
+    #     object(Notification)
+    #   },
+    #   "android": {
+    #     object(AndroidConfig)
+    #   },
+    #   "webpush": {
+    #     object(WebpushConfig)
+    #   },
+    #   "apns": {
+    #     object(ApnsConfig)
+    #   },
+    #   "fcm_options": {
+    #     object (FcmOptions)
+    #   },
+    #
+    #   // Union field target can be only one of the following:
+    #   "token": string,
+    #   "topic": string,
+    #   "condition": string
+    #   // End of list of possible types for union field target.
+    # }
 
     def to_message
       hsh = {}
